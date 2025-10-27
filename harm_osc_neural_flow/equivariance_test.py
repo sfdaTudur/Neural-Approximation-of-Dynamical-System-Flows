@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate empirical SO(2)-equivariance error of f")
     parser.add_argument("--weights", type=str, default=r"D:\flow_datasets/checkpoints/model_harm_osc.pth", help="path to saved model state")
     parser.add_argument("--t", type=float, default=1, help="time t ∈ R")
-    parser.add_argument("--x", type=float, nargs=2, default=[7, 3.5], help="initial point x ∈ R^2 (x1 x2)")
+    parser.add_argument("--x", type=float, nargs=2, default=[1, 0.9], help="initial point x ∈ R^2 (x1 x2)")
     parser.add_argument("--N", type=int, default=200, help="number of rotation powers")
     parser.add_argument("--theta", type=float, default=math.pi * math.sqrt(2.0), help="irrational multiple of pi for rotation angle")
     args = parser.parse_args()
