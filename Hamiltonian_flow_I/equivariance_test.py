@@ -31,7 +31,7 @@ def main():
     )
     parser.add_argument("--weights", type=str, default=r"D:\flow_datasets\checkpoints\Ham_FlowI_weights.pth",
                         help="path to saved model state")
-    parser.add_argument("--t", type=float, default=1.0, help="time t ∈ R")
+    parser.add_argument("--t", type=float, default=0.5, help="time t ∈ R")
     parser.add_argument("--x", type=float, nargs=4, default=[1.0, 0.9, 0.1, 1.0],
                         help="initial state (q1, q2, p1, p2)")
     parser.add_argument("--N", type=int, default=200, help="number of rotation powers")
