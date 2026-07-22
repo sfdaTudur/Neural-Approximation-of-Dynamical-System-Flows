@@ -1,57 +1,58 @@
-# 3D Harmonic Oscillator: Neural Flow Approximation
-
 ## Overview
 
 Consider the three-dimensional harmonic oscillator
 
-[
-q''(t)=-q(t),
-\qquad q(t)\in\mathbb{R}^3.
-]
+$$
+q''(t) = -q(t),
+\qquad q(t) \in \mathbb{R}^3.
+$$
 
 Writing
 
-[
-v=q',
-]
+$$
+v = q',
+$$
 
 the corresponding first-order system is
 
-[
-q'=v,
+$$
+q' = v,
 \qquad
-v'=-q.
-]
+v' = -q.
+$$
 
 The state of the system is
 
-[
-z=(q,v)\in\mathbb{R}^6.
-]
+$$
+z = (q,v) \in \mathbb{R}^6.
+$$
 
 The exact flow map is
 
-[
+$$
 \Psi(t,q,v)
-===========
-
+=
 \left(
-q\cos(t)+v\sin(t),
--q\sin(t)+v\cos(t)
+q\cos(t) + v\sin(t),
+-q\sin(t) + v\cos(t)
 \right).
-]
+$$
 
-This flow is equivariant under the diagonal action of (SO(3)). For a rotation (R\in SO(3)), the action on the state is
+This flow is equivariant under the diagonal action of $SO(3)$.
 
-[
-R\cdot(q,v)=(Rq,Rv),
-]
+For a rotation $R \in SO(3)$, the action on the state is
+
+$$
+R \cdot (q,v) = (Rq,Rv),
+$$
 
 and the flow satisfies
 
-[
-\Psi(t,Rq,Rv)=R\cdot\Psi(t,q,v).
-]
+$$
+\Psi(t,Rq,Rv)
+=
+R \cdot \Psi(t,q,v).
+$$
 
 ## Experiment
 
