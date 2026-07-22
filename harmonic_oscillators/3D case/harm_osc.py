@@ -1,12 +1,22 @@
 import torch
-import sys
 import math
 import csv
 import os
 from torch import nn
 from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision.transforms import ToTensor
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+os.makedirs("data", exist_ok=True)
+os.makedirs("data/plots", exist_ok=True)
+
+seed = 1234
+torch.manual_seed(seed)
+np.random.seed(seed)
+
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
 
 
 #Use GPU if device has one, else use CPU.
@@ -16,24 +26,25 @@ print(f"Using {device} device")
 
 #ReLU neural net with specified depth, used to approximate the flow of a dynamical system
 class NeuralNetwork(nn.Module):
-    def __init__(self, depth):
+    def __init__(self, depth, width):
         super().__init__()
         self.depth = depth
+        self.width = width
 
         self.first_layer = nn.Sequential(
-            nn.Linear(7, 64),
+            nn.Linear(7, width),
             nn.ReLU()
         )
 
         self.hidden_layers = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(64, 64),
+                nn.Linear(width, width),
                 nn.ReLU()
             )
             for _ in range(depth)
         ])
 
-        self.final_layer = nn.Linear(64, 6)
+        self.final_layer = nn.Linear(width, 6)
 
     def forward(self, x):
         x = self.first_layer(x)
@@ -103,7 +114,7 @@ def make_training_data(batch_size, R, noise_std=0.01):
 
 
 #--------------------------------Training--------------------------------------------
-def train_model(model, depth, criterion, optimizer, dl, radius, batch_size, no_of_epochs):
+def train_model(model, depth, width, criterion, optimizer, dl, radius, batch_size, no_of_epochs):
     model.train()
     for epoch in range(1, no_of_epochs + 1):
         running_loss = 0.0
@@ -118,7 +129,7 @@ def train_model(model, depth, criterion, optimizer, dl, radius, batch_size, no_o
         print(f"Epoch {epoch:03d} | MSE: {epoch_loss:.6f}")
 
     # Save weights
-    save_path = f"data/model_weights_depth_{depth}.pth"
+    save_path = f"data/model_weights_depth_{depth}_width_{width}.pth"
 
     save_dir = os.path.dirname(save_path)
     if save_dir:
@@ -128,6 +139,7 @@ def train_model(model, depth, criterion, optimizer, dl, radius, batch_size, no_o
         {
             "state_dict": model.state_dict(),
             "depth": depth,
+            "width": width,
             "radius": radius,
             "batch_size": batch_size,
             "epochs": no_of_epochs,
@@ -141,8 +153,9 @@ def train_model(model, depth, criterion, optimizer, dl, radius, batch_size, no_o
     
 
 #---------------------------------Set parameters for training------------------------------
-max_depth = 30   #maximum depth of nn architecture to be used as our model
-dataset_size = 100000   #size of training set 
+max_depth = 15   
+max_width = 32   
+dataset_size = 10000   
 radius = 5    #radius of sampled (x,y)
 batch_size = 2048   #size of one batch for gradient descent
 no_of_epochs = 50   #epochs for training
@@ -151,12 +164,14 @@ ds = torch.utils.data.TensorDataset(inputs, targets)
 dl = DataLoader(ds, batch_size=batch_size, shuffle=True)
 
 
-for depth in range(1,max_depth):   #train models of varying depth
-    model = NeuralNetwork(depth).to(device)
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
-    #optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)   # Stochastic Gradient Descent
-    train_model(model, depth, criterion, optimizer, dl, radius, batch_size, no_of_epochs)
+
+for depth in range(1,max_depth):
+    for width in range(1, max_width):
+        model = NeuralNetwork(depth, width).to(device)
+        criterion = nn.MSELoss()
+        #optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-5)
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)   # Stochastic Gradient Descent
+        train_model(model, depth, width, criterion, optimizer, dl, radius, batch_size, no_of_epochs)
     
 
 
@@ -222,7 +237,7 @@ def empirical_equivariance_so3(model, num_samples, R):
 
         G_f_z = apply_so3_to_state(G, f_z)
 
-        error = ((f_Gz - G_f_z) ** 2).sum(dim=1).mean()
+        error = ((f_Gz - G_f_z) ** 2).mean()
 
     return error.item()
 
@@ -241,7 +256,7 @@ def test_flow_error(model, num_samples, R):
 
         preds = model(inputs)
 
-        error = ((preds - clean_targets) ** 2).sum(dim=1).mean()
+        error = ((preds - clean_targets) ** 2).mean()
 
     return error.item()
 
@@ -250,26 +265,150 @@ def test_flow_error(model, num_samples, R):
 
 
 
-#--------------Store (depth,equivariance) table to study double-descent-----------------------
+#Store (depth, width,equivariance)- and (depth,width,test_error)-tables to study double-descent
 num_samples = 10000
 test_radii = [5,10,20,40]
 
 
-with open("data/empirical_equivariance_vs_depth.csv", "w", newline="") as f:
+with open("data/empirical_equivariance_vs_depth_width.csv", "w", newline="") as f:
     writer = csv.writer(f)
-    writer.writerow(["depth", "eq_error", "test_error"]) 
+    writer.writerow(["depth", "width", "R_test", "eq_error", "test_error"]) 
 
     for depth in range(1, max_depth):
-        model = NeuralNetwork(depth).to(device)
+        for width in range(1, max_width):
+            model = NeuralNetwork(depth, width).to(device)
 
-        checkpoint = torch.load(
-            f"data/model_weights_depth_{depth}.pth",
-            map_location=device
+            checkpoint = torch.load(
+                f"data/model_weights_depth_{depth}_width_{width}.pth",
+                map_location=device
+            )
+            model.load_state_dict(checkpoint["state_dict"])
+
+
+            for R_test in test_radii:
+                eq_error = empirical_equivariance_so3(model, num_samples, R_test)
+                test_error = test_flow_error(model, num_samples, R_test)
+                writer.writerow([depth, width, R_test, eq_error, test_error])
+
+
+
+#------------------plot results---------------------------------------
+
+def plot_error_surface(
+    dataframe,
+    R_fixed,
+    error_column,
+    output_directory="data/plots",
+    use_log10=True,
+):
+    """
+    Plot error as a function of depth and width for one fixed test radius.
+
+    error_column must be either:
+        "eq_error"
+        "test_error"
+    """
+    if error_column not in {"eq_error", "test_error"}:
+        raise ValueError(
+            "error_column must be either 'eq_error' or 'test_error'"
         )
-        model.load_state_dict(checkpoint["state_dict"])
 
-        for R_test in test_radii:
-            eq_error = empirical_equivariance_so3(model, num_samples, R_test)
-            test_error = test_flow_error(model, num_samples, R_test)
+    # Select rows corresponding to the chosen test radius
+    selected = dataframe[dataframe["R_test"] == R_fixed].copy()
 
-        writer.writerow([depth, eq_error, test_error])
+    if selected.empty:
+        available_radii = sorted(dataframe["R_test"].unique())
+        raise ValueError(
+            f"No data found for R_test={R_fixed}. "
+            f"Available radii are {available_radii}."
+        )
+
+    # Construct a depth-by-width grid
+    error_grid = selected.pivot(
+        index="depth",
+        columns="width",
+        values=error_column,
+    )
+
+    error_grid = error_grid.sort_index()
+    error_grid = error_grid.sort_index(axis=1)
+
+    depths = error_grid.index.to_numpy()
+    widths = error_grid.columns.to_numpy()
+
+    width_mesh, depth_mesh = np.meshgrid(widths, depths)
+    error_values = error_grid.to_numpy(dtype=float)
+
+    # Logarithms usually make error surfaces much easier to see,
+    # particularly when the error varies over several orders of magnitude.
+    if use_log10:
+        positive_floor = np.finfo(float).tiny
+        plotted_values = np.log10(
+            np.maximum(error_values, positive_floor)
+        )
+        z_label = f"log10({error_column})"
+    else:
+        plotted_values = error_values
+        z_label = error_column
+
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection="3d")
+
+    surface = ax.plot_surface(
+        depth_mesh,
+        width_mesh,
+        plotted_values,
+        cmap="viridis",
+        edgecolor="none",
+        antialiased=True,
+    )
+
+    ax.set_xlabel("Depth")
+    ax.set_ylabel("Width")
+    ax.set_zlabel(z_label)
+    ax.set_title(
+        f"{error_column} versus depth and width, R_test={R_fixed}"
+    )
+
+    fig.colorbar(
+        surface,
+        ax=ax,
+        shrink=0.7,
+        pad=0.1,
+        label=z_label,
+    )
+
+    fig.tight_layout()
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    output_path = os.path.join(
+        output_directory,
+        f"{error_column}_surface_R_{R_fixed}.png",
+    )
+
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.show()
+    plt.close(fig)
+
+    print(f"Saved plot to {output_path}")
+
+
+# Read the generated CSV file
+results = pd.read_csv(
+    "data/empirical_equivariance_vs_depth_width.csv"
+)
+
+# Plot both quantities for fixed radii
+for R_fixed in sorted(results["R_test"].unique()):
+    plot_error_surface(
+        results,
+        R_fixed=R_fixed,
+        error_column="eq_error",
+    )
+
+    plot_error_surface(
+        results,
+        R_fixed=R_fixed,
+        error_column="test_error",
+    )
