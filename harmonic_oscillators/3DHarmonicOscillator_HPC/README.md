@@ -29,30 +29,31 @@ $$
 
 The exact flow map is
 
-$$
+```math
 \Psi(t,q,v)
 =
 \left(
 q\cos(t) + v\sin(t),
 -q\sin(t) + v\cos(t)
 \right).
-$$
+```
 
 This flow is equivariant under the diagonal action of $SO(3)$.
 
 For a rotation $R \in SO(3)$, the action on the state is
 
-$$
+```math
 R \cdot (q,v) = (Rq,Rv),
-$$
+```
 
 and the flow satisfies
 
-$$
+```math
 \Psi(t,Rq,Rv)
 =
 R \cdot \Psi(t,q,v).
-$$
+```
+
 
 ## Experiment
 
