@@ -43,21 +43,23 @@ q\cos(t) + v\sin(t),
 
 We build an autoregressive transformer model to predict the flow of this dynamical system.
 
-### Tokenization
+## Tokenization
 
-Fix a radius $`R > 0`$ and a number of bins $`2^B`$.
+Fix a radius $R > 0$ and a number of bins $2^B$.
 
-Each state coordinate $`x_i`$ and output coordinate $`y_i`$ is quantized over the fixed interval $`[-R,R]`$ by splitting it into $`2^B`$ equally spaced bins, indexed by
+Each state coordinate $x_i$ and output coordinate $y_i$ is quantized over the fixed interval $[-R,R]$ by splitting the interval into $2^B$ equally spaced bins indexed by
 
 ```math
 0,1,\ldots,2^B-1.
 ```
 
-Each coordinate is mapped to the index of the bin containing it. To dequantize a token, we map the bin index back to the midpoint of the corresponding bin.
+Each coordinate is mapped to the index of the bin containing it.
 
-Time is quantized separately over the interval $`[0,2\pi]`$.
+To dequantize a token, we map the bin index back to the midpoint of the corresponding bin.
 
-An input $`(t,x)`$, where $`x \in \mathbb{R}^6`$, is quantized into the seven-token sequence
+Time is quantized separately over the interval $[0,2\pi]$.
+
+An input $(t,x)$, where $x \in \mathbb{R}^6$, is represented by the seven-token sequence
 
 ```math
 U
@@ -70,17 +72,17 @@ Q(x_6)
 \right).
 ```
 
-The exact flow output is
+The exact continuous flow output is
 
 ```math
 Y
 =
 \Psi(t,x)
 =
-(y_1,\ldots,y_6),
+(y_1,\ldots,y_6).
 ```
 
-and the transformer is trained to predict its quantized representation
+The transformer is trained to predict its quantized representation
 
 ```math
 \left(
@@ -90,16 +92,19 @@ Q(y_6)
 \right).
 ```
 
-### Autoregressive Model
+## Autoregressive Model
 
-Let $`P_\theta`$ denote the conditional distribution represented by the transformer.
+Let $P_\theta$ denote the conditional distribution represented by the transformer.
 
-The output tokens are generated autoregressively. The first coordinate is generated according to
+The first output coordinate is generated according to
 
 ```math
 Q(y_1)
 \sim
-P_\theta(\,\cdot \mid U).
+P_\theta
+\left(
+\,\cdot\mid U
+\right).
 ```
 
 The second coordinate is generated according to
@@ -107,7 +112,10 @@ The second coordinate is generated according to
 ```math
 Q(y_2)
 \sim
-P_\theta(\,\cdot \mid U,Q(y_1)),
+P_\theta
+\left(
+\,\cdot\mid U,Q(y_1)
+\right),
 ```
 
 and in general
@@ -129,7 +137,7 @@ Q(y_{i-1})
 Therefore the joint conditional distribution factors as
 
 ```math
-P_\theta(Y \mid U)
+P_\theta(Y\mid U)
 =
 \prod_{i=1}^{6}
 P_\theta
@@ -143,11 +151,14 @@ Q(y_{i-1})
 \right).
 ```
 
-### Training Objective
+The model is implemented using a START token followed by the previously generated output tokens.
 
-The model is trained using teacher forcing and cross-entropy loss.
 
-For a batch of $`N`$ training examples $`(U^{(b)},Y^{(b)})`$, the loss is
+## Training Objective
+
+The model is trained using cross-entropy loss.
+
+For a batch of $N$ training examples $(U^{(b)},Y^{(b)})$, the loss is
 
 ```math
 \mathcal{L}(\theta)
@@ -167,6 +178,8 @@ Y_{i-1}^{(b)}
 \right).
 ```
 
+This is the negative log-likelihood of the autoregressive factorization, averaged over both the batch and the six output coordinates.
+
 The transformer architecture is controlled by three main parameters:
 
 * `config.width`: token embedding dimension;
@@ -177,7 +190,7 @@ The transformer architecture is controlled by three main parameters:
 
 The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training.
 
-We fix a tokenization radius $`R`$. This means that the meaning of each state token remains unchanged between training and testing.
+We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing.
 
 During training, initial states are sampled uniformly by volume from the six-dimensional ball
 
@@ -187,7 +200,9 @@ B_{R/2}
 \left\{
 x \in \mathbb{R}^6
 :
-\|x\|_2 \leq \frac{R}{2}
+\|x\|_2
+\leq
+\frac{R}{2}
 \right\}.
 ```
 
@@ -199,29 +214,35 @@ B_R
 \left\{
 x \in \mathbb{R}^6
 :
-\|x\|_2 \leq R
+\|x\|_2
+\leq
+R
 \right\}.
 ```
 
 In six dimensions, the ratio of these volumes is
 
 ```math
-\frac{\operatorname{Vol}(B_{R/2})}
-{\operatorname{Vol}(B_R)}
+\frac{\mathrm{Vol}(B_{R/2})}
+{\mathrm{Vol}(B_R)}
 =
-\left(\frac{1}{2}\right)^6
+\left(
+\frac{1}{2}
+\right)^6
 =
 \frac{1}{64}.
 ```
 
-Thus only approximately $`1.56\%`$ of the volume of $`B_R`$ lies inside the training region $`B_{R/2}`$. Equivalently, approximately $`98.44\%`$ of samples drawn uniformly from $`B_R`$ lie outside the training region.
+Thus only approximately $1.56%$ of the volume of $B_R$ lies inside the training region $B_{R/2}$.
 
-After generating six output tokens, each token is dequantized to the midpoint of its corresponding bin.
+Equivalently, approximately $98.44%$ of states sampled uniformly from $B_R$ lie outside the training region.
+
+After generating six output tokens, each predicted token is dequantized to the midpoint of its corresponding bin.
 
 The prediction is compared with the exact continuous flow using mean squared error:
 
 ```math
-\operatorname{MSE}
+\mathrm{MSE}
 =
 \frac{1}{6N}
 \sum_{b=1}^{N}
@@ -233,13 +254,11 @@ y_i^{(b)}
 \right)^2.
 ```
 
-The current experiment trains transformers of varying embedding width and records the resulting out-of-distribution test MSE.
+The current experiment trains transformers of varying embedding width and records the resulting test MSE.
 
-## Decoding
+## Stochastic Decoding
 
-### Stochastic Decoding
-
-The default generation method samples each output token from the categorical distribution predicted by the transformer:
+By default, the model samples each output token from the categorical distribution predicted by the transformer:
 
 ```math
 \hat Y_i
@@ -255,14 +274,19 @@ U,
 \right).
 ```
 
-### Greedy Decoding
+This produces stochastic predictions.
 
-Greedy decoding instead chooses the most probable output token at every autoregressive step:
+A fixed random seed can be used during evaluation to make the resulting MSE reproducible.
+
+## Greedy Decoding
+
+Greedy decoding instead chooses the most probable output token at each autoregressive step:
 
 ```math
 \hat Y_i
 =
-\operatorname*{argmax}_{k}
+\underset{k}{\mathrm{argmax}}
+\;
 P_\theta
 \left(
 k
@@ -274,7 +298,39 @@ U,
 \right).
 ```
 
+Greedy decoding gives a deterministic prediction for a fixed trained model and input.
+
 Comparing stochastic and greedy decoding allows us to distinguish sampling variability from the predictive quality of the learned conditional distributions.
+
+## Width Scaling Experiment
+
+The current experiment varies the transformer embedding width while keeping the number of layers and attention heads fixed.
+
+For each width:
+
+1. A new transformer is initialized.
+2. The transformer is trained on the same fixed training dataset sampled from $B_{R/2}$.
+3. The trained model is evaluated on the same fixed test dataset sampled from $B_R$.
+4. The test MSE is recorded.
+5. The model is deleted before training the next width.
+
+The experiment writes pairs of the form
+
+```text
+width,mse
+```
+
+to
+
+```text
+width_vs_mse.csv
+```
+
+and saves the corresponding plot as
+
+```text
+width_vs_mse.png
+```
 
 ## Project Structure
 
@@ -288,15 +344,15 @@ FlowTransformer/
 └── README.md
 ```
 
-* `data.py`: sampling, exact flow evaluation, quantization, and dequantization.
-* `model.py`: transformer architecture and autoregressive generation.
-* `training.py`: cross-entropy loss and training loop.
-* `main.py`: width-scaling and OOD generalization experiments.
-* `test.py`: automated tests for the data, model, and training code.
+data.py: sampling, exact flow evaluation, quantization, and dequantization.
+model.py: transformer architecture and autoregressive generation.
+training.py: cross-entropy loss and training loop.
+main.py: width-scaling and OOD generalization experiments.
+test.py: automated tests for the data, model, and training code.
 
 ## Requirements
 
-The main dependencies are:
+The main dependencies are
 
 ```text
 torch
@@ -318,17 +374,7 @@ Run the test suite with
 python -m pytest test.py -v
 ```
 
-The width-scaling experiment saves numerical results to
 
-```text
-width_vs_mse.csv
-```
-
-and saves the corresponding plot to
-
-```text
-width_vs_mse.png
-```
 
 ## To Do
 
@@ -344,7 +390,9 @@ R
 
 to obtain a purely out-of-distribution test set.
 
-* Compare stochastic and greedy decoding.
-* Compare the transformer against simpler neural-network baselines.
-* Add further OOD evaluation metrics.
-* Add a Slurm script for running experiments on a GPU cluster.
+* Compare stochastic and greedy decoding quantitatively.
+* Compare the transformer with simpler neural-network baselines.
+* Evaluate MSE as a function of the state radius $|x|_2$.
+* Add additional out-of-distribution metrics.
+* Add a Slurm script for reproducible GPU experiments.
+* Run experiments over multiple random seeds and report mean and standard deviation.
