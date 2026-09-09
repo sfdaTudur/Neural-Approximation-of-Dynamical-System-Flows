@@ -344,11 +344,11 @@ FlowTransformer/
 └── README.md
 ```
 
-data.py: sampling, exact flow evaluation, quantization, and dequantization.
-model.py: transformer architecture and autoregressive generation.
-training.py: cross-entropy loss and training loop.
-main.py: width-scaling and OOD generalization experiments.
-test.py: automated tests for the data, model, and training code.
+* data.py: sampling, exact flow evaluation, quantization, and dequantization.
+* model.py: transformer architecture and autoregressive generation.
+* training.py: cross-entropy loss and training loop.
+* main.py: width-scaling and OOD generalization experiments.
+* test.py: automated tests for the data, model, and training code.
 
 ## Requirements
 
@@ -391,8 +391,4 @@ R
 to obtain a purely out-of-distribution test set.
 
 * Compare stochastic and greedy decoding quantitatively.
-* Compare the transformer with simpler neural-network baselines.
-* Evaluate MSE as a function of the state radius $|x|_2$.
-* Add additional out-of-distribution metrics.
 * Add a Slurm script for reproducible GPU experiments.
-* Run experiments over multiple random seeds and report mean and standard deviation.
