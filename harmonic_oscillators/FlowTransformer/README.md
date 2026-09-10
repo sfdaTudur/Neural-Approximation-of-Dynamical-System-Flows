@@ -119,11 +119,11 @@ We test the stochastic method against greedy generation, which chooses the most 
 ```math
  Q(y_i)
 =
-\underset{k}{\mathrm{argmax}}
+\underset{k \in \{0,..,2^B-1}}{\mathrm{argmax}}
 \;
 P_\theta
 \left(
-Q(y_k)
+Q(y_i)=k
 \mid
 U,
 Q(y_1),
@@ -137,7 +137,7 @@ Q(y_{i-1})
 
 The model is trained using cross-entropy loss.
 
-For a batch of $N$ training examples $(U^{(b)},Y^{(b)})$, the loss is
+For a batch of $N$ quantized training examples $(U^{(b)},Y^{(b)})$, the loss is
 
 ```math
 \mathcal{L}(\theta)
@@ -232,7 +232,7 @@ The current experiment trains transformers of varying embedding width while keep
 The experiment writes
 
 ```text
-width,mse_stochastic,mse_greedy
+width,Stochastic mse,Greedy mse
 ```
 to
 ```text
@@ -252,6 +252,7 @@ FlowTransformer/
 ├── training.py
 ├── main.py
 ├── test.py
+├── slurm_script.sh
 └── README.md
 ```
 
@@ -260,6 +261,7 @@ FlowTransformer/
 * training.py: cross-entropy loss and training loop.
 * main.py: width-scaling and OOD generalization experiments.
 * test.py: automated tests for the data, model, and training code.
+* slurm_script.sh: slurm script used to submit the experiment as a batch job on Isambard HPC.
 
 **Requirements**
 
@@ -271,7 +273,7 @@ matplotlib
 pytest
 ```
 
-**Running the Code**
+**Running the Code Locally**
 
 Run the main experiment with
 
@@ -283,4 +285,34 @@ Run the test suite with
 
 ```bash
 python -m pytest test.py -v
+```
+
+**Running the Code on Isambard-AI with Slurm**
+
+Initialize miniforge
+```bash
+source ~/miniforge3/bin/activate
+```
+get an interactive GPU node
+```bash 
+srun --nodes=1 --gpus=1 --time=00:30:00 --pty /bin/bash --login
+```
+and once the compute node starts, run
+```bash
+source ~/miniforge3/bin/activate
+conda create --name harmosc-hpc --channel conda-forge python=3.12 pytorch matplotlib pytest
+conda activate harmosc-hpc
+```
+verfy that the required packages can be imported
+```bash
+python -c "import torch, matplotlib, pytest; print('Packages installed successfully')"
+```
+check whether PyTorch can access CUDA GPU
+```bash
+python -c "import torch; print('CUDA:available', torch.cuda.is_available())"
+```
+Submit the script on HPC from the project directory:
+```bash
+conda activate harmosc-hpc
+sbatch slurm_script.sh
 ```
