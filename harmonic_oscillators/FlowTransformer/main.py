@@ -65,6 +65,7 @@ def evaluate_generated_mse(
     num_bins,
     batch_size,
     device,
+    is_greedy,
     generation_seed=12345,
 ):
     """
@@ -112,7 +113,7 @@ def evaluate_generated_mse(
         generated_tokens, _ = model.generate(
             input_tokens,
             generator=generator,
-            greedy = True,
+            greedy = is_greedy,
         )
 
         # Convert each predicted output bin into its midpoint.
@@ -170,7 +171,8 @@ def main():
     print()
 
     width_results = []
-    mse_results = []
+    mse_results_stochastic = []
+    mse_results_greedy = []
 
     with open(
         RESULTS_FILE,
@@ -184,7 +186,8 @@ def main():
         writer.writerow(
             [
                 "width",
-                "mse",
+                "Stochastic mse",
+                "Greedy mse",
             ]
         )
 
@@ -233,27 +236,36 @@ def main():
             )
 
             # Test using model.generate().
-            mse = evaluate_generated_mse(
+            mse_stochastic = evaluate_generated_mse(
                 model,
                 test_data,
                 tokenization_radius=TOKENIZATION_RADIUS,
                 num_bins=NUM_BINS,
                 batch_size=TEST_BATCH_SIZE,
                 device=device,
+                is_greedy=False,
+            )
+            mse_greedy = evaluate_generated_mse(
+                model,
+                test_data,
+                tokenization_radius=TOKENIZATION_RADIUS,
+                num_bins=NUM_BINS,
+                batch_size=TEST_BATCH_SIZE,
+                device=device,
+                is_greedy=True,
             )
 
             width_results.append(width)
-            mse_results.append(mse)
+            mse_results_stochastic.append(mse_stochastic)
+            mse_results_greedy.append(mse_greedy)
 
-            print(
-                f"Test MSE: {mse:.8e}"
-            )
 
             # Save result before destroying model.
             writer.writerow(
                 [
                     width,
-                    mse,
+                    mse_stochastic,
+                    mse_greedy
                 ]
             )
 
@@ -271,18 +283,27 @@ def main():
                 torch.cuda.empty_cache()
 
             print()
-    #plot (width,mse)
+    #plot (width,mse) for stochastic and greedy generation.
     plt.figure(figsize=(7, 5))
     plt.plot(
         width_results,
-        mse_results,
+        mse_results_stochastic,
         marker="o",
+        label ="Stochastic",
+    )
+    plt.plot(
+        width_results,
+        mse_results_greedy,
+        marker="o",
+        label="Greedy",
     )
 
     plt.xlabel("Transformer width")
     plt.ylabel("Test MSE")
     plt.title("Transformer Width vs Test MSE")
+
     plt.grid(True)
+    plt.legend()
 
     plt.tight_layout()
     plt.savefig(
