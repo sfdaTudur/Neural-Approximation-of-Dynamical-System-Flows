@@ -1,5 +1,3 @@
-# FlowTransformer for the Harmonic Oscillator
-
 Consider the three-dimensional harmonic oscillator
 
 ```math
@@ -39,25 +37,17 @@ q\cos(t) + v\sin(t),
 \right).
 ```
 
-## Model to Predict the Flow
+**Model to predict flow**
 
-We build an autoregressive transformer model to predict the flow of this dynamical system.
+We build an autoregressive transformer model to predict the flow of this dynamical system, and study how well the transformer generalizes outside the state distribution used during training. To do this we quantize the input and output coordinates as follows: 
 
-## Tokenization
-
-Fix a radius $R > 0$ and a number of bins $2^B$.
-
-Each state coordinate $x_i$ and output coordinate $y_i$ is quantized over the fixed interval $[-R,R]$ by splitting the interval into $2^B$ equally spaced bins indexed by
+Fix a radius $R > 0$ and a number of bins $2^B$. Each state coordinate $x_i$ and output coordinate $y_i$ is quantized over the fixed interval $[-R,R]$ by splitting the interval into $2^B$ equally spaced bins indexed by
 
 ```math
 0,1,\ldots,2^B-1.
 ```
 
-Each coordinate is mapped to the index of the bin containing it.
-
-To dequantize a token, we map the bin index back to the midpoint of the corresponding bin.
-
-Time is quantized separately over the interval $[0,2\pi]$.
+Each coordinate is mapped to the index of the bin containing it. To dequantize we map the bin index to the midpoint of the corresponding bin. Time is quantized separately over the interval $[0,2\pi]$.
 
 An input $(t,x)$, where $x \in \mathbb{R}^6$, is represented by the seven-token sequence
 
@@ -92,34 +82,9 @@ Q(y_6)
 \right).
 ```
 
-## Autoregressive Model
+**Autoregressive model**
 
-Let $P_\theta$ denote the conditional distribution represented by the transformer.
-
-The first output coordinate is generated according to
-
-```math
-Q(y_1)
-\sim
-P_\theta
-\left(
-\,\cdot\mid U
-\right).
-```
-
-The second coordinate is generated according to
-
-```math
-Q(y_2)
-\sim
-P_\theta
-\left(
-\,\cdot\mid U,Q(y_1)
-\right),
-```
-
-and in general
-
+Let $P_\theta$ denote the conditional distribution represented by the transformer. In the stochastic method of generation, the output coordinates are generated according to
 ```math
 Q(y_i)
 \sim
@@ -133,8 +98,7 @@ Q(y_1),
 Q(y_{i-1})
 \right).
 ```
-
-Therefore the joint conditional distribution factors as
+The joint conditional distribution factors as
 
 ```math
 P_\theta(Y\mid U)
@@ -150,11 +114,26 @@ Q(y_1),
 Q(y_{i-1})
 \right).
 ```
+We test the stochastic method against greedy generation, which chooses the most probable output token at each autoregressive step
 
-The model is implemented using a START token followed by the previously generated output tokens.
+```math
+ Q(y_i)
+=
+\underset{k}{\mathrm{argmax}}
+\;
+P_\theta
+\left(
+Q(y_k)
+\mid
+U,
+Q(y_1),
+\ldots,
+Q(y_{i-1})
+\right).
+```
 
 
-## Training Objective
+**Training Objective**
 
 The model is trained using cross-entropy loss.
 
@@ -177,22 +156,15 @@ Y_1^{(b)},
 Y_{i-1}^{(b)}
 \right).
 ```
-
-This is the negative log-likelihood of the autoregressive factorization, averaged over both the batch and the six output coordinates.
-
 The transformer architecture is controlled by three main parameters:
 
 * `config.width`: token embedding dimension;
 * `config.layers`: number of transformer blocks;
 * `config.heads`: number of attention heads in each transformer block.
 
-## Evaluating Generalization on Out-of-Distribution Data
+**Evaluating Generalization on Out-of-Distribution Data**
 
-The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training.
-
-We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing.
-
-During training, initial states are sampled uniformly by volume from the six-dimensional ball
+The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training. We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing. During training, initial states are sampled uniformly by volume from the six-dimensional ball
 
 ```math
 B_{R/2}
@@ -232,14 +204,9 @@ In six dimensions, the ratio of these volumes is
 =
 \frac{1}{64}.
 ```
+Thus only approximately $1.56%$ of the volume of $B_R$ lies inside the training region $B_{R/2}$; approximately $98.44%$ of states sampled uniformly from $B_R$ lie outside the training region. 
 
-Thus only approximately $1.56%$ of the volume of $B_R$ lies inside the training region $B_{R/2}$.
-
-Equivalently, approximately $98.44%$ of states sampled uniformly from $B_R$ lie outside the training region.
-
-After generating six output tokens, each predicted token is dequantized to the midpoint of its corresponding bin.
-
-The prediction is compared with the exact continuous flow using mean squared error:
+After generating six output tokens, each predicted token is dequantized to the midpoint of its corresponding bin. The prediction is compared with the exact continuous flow using mean squared error:
 
 ```math
 \mathrm{MSE}
@@ -254,85 +221,29 @@ y_i^{(b)}
 \right)^2.
 ```
 
-The current experiment trains transformers of varying embedding width and records the resulting test MSE.
-
-## Stochastic Decoding
-
-By default, the model samples each output token from the categorical distribution predicted by the transformer:
-
-```math
-\hat Y_i
-\sim
-P_\theta
-\left(
-\,\cdot
-\mid
-U,
-\hat Y_1,
-\ldots,
-\hat Y_{i-1}
-\right).
-```
-
-This produces stochastic predictions.
-
-A fixed random seed can be used during evaluation to make the resulting MSE reproducible.
-
-## Greedy Decoding
-
-Greedy decoding instead chooses the most probable output token at each autoregressive step:
-
-```math
-\hat Y_i
-=
-\underset{k}{\mathrm{argmax}}
-\;
-P_\theta
-\left(
-k
-\mid
-U,
-\hat Y_1,
-\ldots,
-\hat Y_{i-1}
-\right).
-```
-
-Greedy decoding gives a deterministic prediction for a fixed trained model and input.
-
-Comparing stochastic and greedy decoding allows us to distinguish sampling variability from the predictive quality of the learned conditional distributions.
-
-## Width Scaling Experiment
-
-The current experiment varies the transformer embedding width while keeping the number of layers and attention heads fixed.
-
-For each width:
+The current experiment trains transformers of varying embedding width while keeping the number of layers and attention heads fixed. For each width:
 
 1. A new transformer is initialized.
 2. The transformer is trained on the same fixed training dataset sampled from $B_{R/2}$.
-3. The trained model is evaluated on the same fixed test dataset sampled from $B_R$.
-4. The test MSE is recorded.
+3. The trained model is evaluated on the same fixed test dataset sampled from $B_R$. We evaluate using both stochastic and greedy generation of output tokens.
+4. The test MSE is recorded for both stochastic and greedy generation.
 5. The model is deleted before training the next width.
 
-The experiment writes pairs of the form
+The experiment writes
 
 ```text
-width,mse
+width,mse_stochastic,mse_greedy
 ```
-
 to
-
 ```text
 width_vs_mse.csv
 ```
-
 and saves the corresponding plot as
-
 ```text
 width_vs_mse.png
 ```
 
-## Project Structure
+**Project Structure**
 
 ```text
 FlowTransformer/
@@ -350,7 +261,7 @@ FlowTransformer/
 * main.py: width-scaling and OOD generalization experiments.
 * test.py: automated tests for the data, model, and training code.
 
-## Requirements
+**Requirements**
 
 The main dependencies are
 
@@ -360,7 +271,7 @@ matplotlib
 pytest
 ```
 
-## Running the Code
+**Running the Code**
 
 Run the main experiment with
 
@@ -373,22 +284,3 @@ Run the test suite with
 ```bash
 python -m pytest test.py -v
 ```
-
-
-
-## To Do
-
-* Sample test states directly from the shell
-
-```math
-\frac{R}{2}
-\leq
-\|x\|_2
-\leq
-R
-```
-
-to obtain a purely out-of-distribution test set.
-
-* Compare stochastic and greedy decoding quantitatively.
-* Add a Slurm script for reproducible GPU experiments.
