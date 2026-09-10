@@ -119,7 +119,7 @@ We test the stochastic method against greedy generation, which chooses the most 
 ```math
  Q(y_i)
 =
-\underset{k \in \{0,..,2^B-1}}{\mathrm{argmax}}
+\underset{k \in \{0,..,2^B-1\}}{\mathrm{argmax}}
 \;
 P_\theta
 \left(
