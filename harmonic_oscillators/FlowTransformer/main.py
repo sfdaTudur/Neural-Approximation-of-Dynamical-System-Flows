@@ -1,5 +1,6 @@
 import csv
-import gc
+import argparse
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -45,15 +46,10 @@ WEIGHT_DECAY = 0.0
 LAYERS = 2
 HEADS = 4
 
-# ModelConfig requires width % heads == 0.
-WIDTHS = [
-    width
-    for width in range(1, 71)
-    if width % HEADS == 0
-]
 
-
-RESULTS_FILE = "width_vs_mse.csv"
+RESULTS_DIR = Path("width_results")
+RESULTS_FILE = Path("width_vs_mse.csv")
+PLOT_FILE = Path("width_vs_mse.png")
 
 
 @torch.no_grad()
@@ -134,18 +130,21 @@ def evaluate_generated_mse(
     return total_squared_error / total_coordinates
 
 
-def main():
+def run_single_width(width):
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
 
     print(f"Using device: {device}")
-    print(f"Widths: {WIDTHS}")
-    print()
+    print(f"Width: {width}")
 
-    # Generate the datasets once; every architecture sees the same
-    # training examples and test examples.
+    if width % HEADS != 0:
+        raise ValueError(
+            f"Width {width} must be divisible by {HEADS} heads."
+        )
 
+    # Generate exactly the same datasets for every experiment
+    # because the seeds are fixed.
     print("Generating training dataset...")
 
     train_data = make_data(
@@ -166,16 +165,61 @@ def main():
         seed=TEST_SEED,
     )
 
-    print(f"Training examples: {len(train_data):,}")
-    print(f"Test examples:     {len(test_data):,}")
-    print()
+    # Reproducible model initialization.
+    torch.manual_seed(width)
 
-    width_results = []
-    mse_results_stochastic = []
-    mse_results_greedy = []
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(width)
 
-    with open(
-        RESULTS_FILE,
+    config = ModelConfig(
+        num_bins=NUM_BINS,
+        width=width,
+        layers=LAYERS,
+        heads=HEADS,
+    )
+
+    model = FlowTransformer(config)
+
+    print(f"Parameters: {model.parameter_count:,}")
+
+    loss_history = train_model(
+        model,
+        train_data,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LEARNING_RATE,
+        weight_decay=WEIGHT_DECAY,
+        device=device,
+    )
+
+    print(f"Final training loss: {loss_history[-1]:.6f}")
+
+    mse_stochastic = evaluate_generated_mse(
+        model,
+        test_data,
+        tokenization_radius=TOKENIZATION_RADIUS,
+        num_bins=NUM_BINS,
+        batch_size=TEST_BATCH_SIZE,
+        device=device,
+        is_greedy=False,
+    )
+
+    mse_greedy = evaluate_generated_mse(
+        model,
+        test_data,
+        tokenization_radius=TOKENIZATION_RADIUS,
+        num_bins=NUM_BINS,
+        batch_size=TEST_BATCH_SIZE,
+        device=device,
+        is_greedy=True,
+    )
+
+    # Each Slurm task gets its OWN result file.
+    RESULTS_DIR.mkdir(exist_ok=True)
+
+    result_file = RESULTS_DIR / f"width_{width:03d}.csv"
+
+    with result_file.open(
         "w",
         newline="",
         encoding="utf-8",
@@ -183,117 +227,106 @@ def main():
 
         writer = csv.writer(csv_file)
 
-        writer.writerow(
-            [
-                "width",
-                "Stochastic mse",
-                "Greedy mse",
-            ]
+        writer.writerow([
+            "width",
+            "Stochastic mse",
+            "Greedy mse",
+        ])
+
+        writer.writerow([
+            width,
+            mse_stochastic,
+            mse_greedy,
+        ])
+
+    print(f"Result written to {result_file}")
+
+def aggregate_results():
+    """
+    Combines data from each experiment into a single csv and plots results
+    """
+    result_files = list(
+        RESULTS_DIR.glob("width_*.csv")
+    )
+
+    if not result_files:
+        raise RuntimeError(
+            f"No result files found in {RESULTS_DIR}"
         )
 
-        for width in WIDTHS:
+    results = []
 
-            print("=" * 60)
-            print(f"Training transformer with width = {width}")
-            print("=" * 60)
+    for result_file in result_files:
+        with result_file.open(
+            "r",
+            encoding="utf-8",
+        ) as csv_file:
 
-            # Give each experiment a reproducible initialization.
-            torch.manual_seed(width)
+            reader = csv.DictReader(csv_file)
+            row = next(reader)
 
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(width)
+            results.append({
+                "width": int(row["width"]),
+                "Stochastic mse": float(
+                    row["Stochastic mse"]
+                ),
+                "Greedy mse": float(
+                    row["Greedy mse"]
+                ),
+            })
 
-            config = ModelConfig(
-                num_bins=NUM_BINS,
-                width=width,
-                layers=LAYERS,
-                heads=HEADS,
-            )
+    # The jobs may finish in any order,
+    # so sort by embedding width.
+    results.sort(key=lambda row: row["width"])
 
-            model = FlowTransformer(config)
+    with RESULTS_FILE.open(
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
 
-            print(
-                f"Parameters: "
-                f"{model.parameter_count:,}"
-            )
+        writer = csv.writer(csv_file)
 
-            #train
-            loss_history = train_model(
-                model,
-                train_data,
-                epochs=EPOCHS,
-                batch_size=BATCH_SIZE,
-                learning_rate=LEARNING_RATE,
-                weight_decay=WEIGHT_DECAY,
-                device=device,
-            )
+        writer.writerow([
+            "width",
+            "Stochastic mse",
+            "Greedy mse",
+        ])
 
-            model.eval()
+        for row in results:
+            writer.writerow([
+                row["width"],
+                row["Stochastic mse"],
+                row["Greedy mse"],
+            ])
 
-            print(
-                f"Final training loss: "
-                f"{loss_history[-1]:.6f}"
-            )
+    widths = [
+        row["width"]
+        for row in results
+    ]
 
-            # Test using model.generate().
-            mse_stochastic = evaluate_generated_mse(
-                model,
-                test_data,
-                tokenization_radius=TOKENIZATION_RADIUS,
-                num_bins=NUM_BINS,
-                batch_size=TEST_BATCH_SIZE,
-                device=device,
-                is_greedy=False,
-            )
-            mse_greedy = evaluate_generated_mse(
-                model,
-                test_data,
-                tokenization_radius=TOKENIZATION_RADIUS,
-                num_bins=NUM_BINS,
-                batch_size=TEST_BATCH_SIZE,
-                device=device,
-                is_greedy=True,
-            )
+    stochastic_mse = [
+        row["Stochastic mse"]
+        for row in results
+    ]
 
-            width_results.append(width)
-            mse_results_stochastic.append(mse_stochastic)
-            mse_results_greedy.append(mse_greedy)
+    greedy_mse = [
+        row["Greedy mse"]
+        for row in results
+    ]
 
-
-            # Save result before destroying model.
-            writer.writerow(
-                [
-                    width,
-                    mse_stochastic,
-                    mse_greedy
-                ]
-            )
-
-            # Force the CSV contents to disk after every model.
-            csv_file.flush()
-
-            # Delete this model before constructing the next.
-            del model
-            del config
-            del loss_history
-
-            gc.collect()
-
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-            print()
-    #plot (width,mse) for stochastic and greedy generation.
     plt.figure(figsize=(7, 5))
+
     plt.plot(
-        width_results,
-        mse_results_stochastic,
+        widths,
+        stochastic_mse,
         marker="o",
-        label ="Stochastic",
+        label="Stochastic",
     )
+
     plt.plot(
-        width_results,
-        mse_results_greedy,
+        widths,
+        greedy_mse,
         marker="o",
         label="Greedy",
     )
@@ -301,24 +334,41 @@ def main():
     plt.xlabel("Transformer width")
     plt.ylabel("Test MSE")
     plt.title("Transformer Width vs Test MSE")
-
     plt.grid(True)
     plt.legend()
-
     plt.tight_layout()
-    plt.savefig(
-        "width_vs_mse.png",
-        dpi=300,
-    )
 
+    plt.savefig(PLOT_FILE, dpi=300)
     plt.close()
 
+    print(f"Combined results written to {RESULTS_FILE}")
+    print(f"Plot written to {PLOT_FILE}")
 
-    print("=" * 60)
-    print("Experiment complete.")
-    print(f"Results written to: {RESULTS_FILE}")
-    print("Plot written to: width_vs_mse.png")
-    print("=" * 60)
+def main():
+    parser = argparse.ArgumentParser()
+
+    group = parser.add_mutually_exclusive_group(
+        required=True
+    )
+
+    group.add_argument(
+        "--width",
+        type=int,
+        help="Embedding width to train.",
+    )
+
+    group.add_argument(
+        "--aggregate",
+        action="store_true",
+        help="Combine results and create the graph.",
+    )
+
+    args = parser.parse_args()
+
+    if args.aggregate:
+        aggregate_results()
+    else:
+        run_single_width(args.width)
 
 
 if __name__ == "__main__":
