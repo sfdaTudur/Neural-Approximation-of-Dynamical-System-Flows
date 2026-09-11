@@ -227,21 +227,10 @@ The current experiment trains transformers of varying embedding width while keep
 2. The transformer is trained on the same fixed training dataset sampled from $B_{R/2}$.
 3. The trained model is evaluated on the same fixed test dataset sampled from $B_R$. We evaluate using both stochastic and greedy generation of output tokens.
 4. The test MSE is recorded for both stochastic and greedy generation.
-5. The model is deleted before training the next width.
 
-The experiment writes
-
-```text
-width,Stochastic mse,Greedy mse
-```
-to
-```text
-width_vs_mse.csv
-```
-and saves the corresponding plot as
-```text
-width_vs_mse.png
-```
+Each experiment writes its results to a separate CSV file in width_results/. Once all width experiments have
+completed, the results are combined into width_vs_mse.csv and the corresponding plot is saved as 
+width_vs_mse.png.
 
 **Project Structure**
 
@@ -252,16 +241,22 @@ FlowTransformer/
 ├── training.py
 ├── main.py
 ├── test.py
-├── slurm_script.sh
+├── slurm_array.sh
+├── slurm_aggregate.sh
 └── README.md
 ```
 
 * data.py: sampling, exact flow evaluation, quantization, and dequantization.
 * model.py: transformer architecture and autoregressive generation.
 * training.py: cross-entropy loss and training loop.
-* main.py: width-scaling and OOD generalization experiments.
+* main.py: trains and evaluates a transformer for a single embedding
+  width, and can aggregate completed experiments into the final CSV
+  and plot.
 * test.py: automated tests for the data, model, and training code.
-* slurm_script.sh: slurm script used to submit the experiment as a batch job on Isambard HPC.
+* slurm_array.sh: launches independent embedding-width experiments
+  as a Slurm job array, with one GPU per experiment.
+* slurm_aggregate.sh: runs after the array completes and combines
+  the individual results into a single CSV and plot.
 
 **Requirements**
 
@@ -275,10 +270,15 @@ pytest
 
 **Running the Code Locally**
 
-Run the main experiment with
+Run the main experiment (with embedding dimension 32 for example)
 
 ```bash
-python main.py
+python main.py --width 32
+```
+
+You can combine the results of separate runs using 
+```bash
+python main.py --aggregate
 ```
 
 Run the test suite with
@@ -311,8 +311,15 @@ check whether PyTorch can access CUDA GPU
 ```bash
 python -c "import torch; print('CUDA:available', torch.cuda.is_available())"
 ```
-Submit the script on HPC from the project directory:
+
+To run, clear old results if applicable
 ```bash
-conda activate harmosc-hpc
-sbatch slurm_script.sh
+rm -rf width_results
+rm -f width_vs_mse.csv width_vs_mse.png
+mkdir width_results
+```
+then run
+```bash
+ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
+sbatch --dependency=afterok:$ARRAY_JOB slurm_aggregate.sh
 ```
