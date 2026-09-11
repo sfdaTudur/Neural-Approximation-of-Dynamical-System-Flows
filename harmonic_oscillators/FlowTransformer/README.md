@@ -320,6 +320,6 @@ mkdir width_results
 ```
 then run
 ```bash
-ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
-sbatch --dependency=afterok:$ARRAY_JOB slurm_aggregate.sh
+ARRAY_JOB=$(sbatch --parsable --array=1-16%4 slurm_array.sh)
+sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 ```
