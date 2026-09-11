@@ -311,6 +311,10 @@ check whether PyTorch can access CUDA GPU
 ```bash
 python -c "import torch; print('CUDA:available', torch.cuda.is_available())"
 ```
+then exit the compute node with 
+```bash
+exit
+```
 
 To run, clear old results if applicable
 ```bash
@@ -320,6 +324,6 @@ mkdir width_results
 ```
 then run
 ```bash
-ARRAY_JOB=$(sbatch --parsable --array=1-16%4 slurm_array.sh)
+ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
 sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 ```
