@@ -202,3 +202,5 @@ data/plots/
 ```
 
 The generated `.html` files can be opened in a web browser. Each plot shows the relationship between network depth, network width, and either the flow error or the empirical equivariance error.
+
+The repository includes a CSV file containing the results of this experiment, which was run on the Isambard-AI HPC system. Each model was trained on a dataset of 100,000 samples, with states sampled uniformly in volume from a ball of radius 0.5. Training used stochastic gradient descent with a batch size of 256, a learning rate of \(10^{-3}\), and 20 epochs. To compute the equivariance errors, 10,000 test samples were generated for each test radius, with states sampled uniformly in volume from balls of radius 1, 2, and 5, respectively.
