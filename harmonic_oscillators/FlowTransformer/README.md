@@ -164,19 +164,24 @@ The transformer architecture is controlled by three main parameters:
 
 **Evaluating Generalization on Out-of-Distribution Data**
 
-The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training. We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing. During training, initial states are sampled uniformly by volume from the six-dimensional ball
+The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training. We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing. During training, initial states are sampled uniformly by volume from
 
 ```math
-B_{R/2}
+B_{r}
 =
 \left\{
 x \in \mathbb{R}^6
 :
 \|x\|_2
 \leq
-\frac{R}{2}
-\right\}.
+r
+\right\}
 ```
+where 
+```math
+r << R.
+```
+
 
 For testing, states are sampled uniformly from the larger ball
 
@@ -191,20 +196,6 @@ x \in \mathbb{R}^6
 R
 \right\}.
 ```
-
-In six dimensions, the ratio of these volumes is
-
-```math
-\frac{\mathrm{Vol}(B_{R/2})}
-{\mathrm{Vol}(B_R)}
-=
-\left(
-\frac{1}{2}
-\right)^6
-=
-\frac{1}{64}.
-```
-Thus only approximately $1.56%$ of the volume of $B_R$ lies inside the training region $B_{R/2}$; approximately $98.44%$ of states sampled uniformly from $B_R$ lie outside the training region. 
 
 After generating six output tokens, each predicted token is dequantized to the midpoint of its corresponding bin. The prediction is compared with the exact continuous flow using mean squared error:
 
@@ -224,7 +215,7 @@ y_i^{(b)}
 The current experiment trains transformers of varying embedding width while keeping the number of layers and attention heads fixed. For each width:
 
 1. A new transformer is initialized.
-2. The transformer is trained on the same fixed training dataset sampled from $B_{R/2}$.
+2. The transformer is trained on the same fixed training dataset sampled from $B_{r}$.
 3. The trained model is evaluated on the same fixed test dataset sampled from $B_R$. We evaluate using both stochastic and greedy generation of output tokens.
 4. The test MSE is recorded for both stochastic and greedy generation.
 
@@ -327,3 +318,11 @@ then run
 ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
 sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 ```
+
+
+**Output**
+
+This repository includes the final results of the transformer width experiment run on Isambard-AI. For this experiment, the tokenization radius was set to 5. Training states were sampled uniformly by volume from a ball of radius 0.5, and test states sampled from a ball of radius 5. State coordinates were quantized into 256 bins. The number of transformer layers and attention heads were fixed at 2 and 4 respectively. The aggregated numerical results are available in width_vs_mse.csv . A plot of (width, MSE) is shown below:
+
+[![Transformer width vs test MSE](width_vs_mse.png)](width_vs_mse.png)
+
