@@ -323,3 +323,8 @@ then run
 ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
 sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 ```
+
+**Results**
+
+The final width-vs-mse plot is given below
+![Width vs MSE](width_results/width_vs_mse.png)
