@@ -246,6 +246,9 @@ def plot_error_surface(
     output_directory="data/plots",
     use_log10=True,
 ):
+    """
+    Plots (depth,width,error) for test and equivariance errors.
+    """
     try:
         import plotly.graph_objects as go
     except ImportError as exc:
@@ -313,6 +316,71 @@ def plot_error_surface(
     print(f"Saved interactive plot to {output_path}")
 
 
+def plot_error_vs_parameters(
+    dataframe,
+    error_column,
+    test_radii=(5, 20),
+    output_directory="data/plots",
+):
+    try:
+        import plotly.express as px
+    except ImportError as exc:
+        raise ImportError(
+            "Install Plotly to create interactive plots: pip install plotly"
+        ) from exc
+
+    # Keep only the test radii we want to compare
+    selected = dataframe[
+        dataframe["R_test"].isin(test_radii)
+    ].copy()
+
+    # Convert radius to string so Plotly treats it as a categorical variable
+    selected["R_test_label"] = selected["R_test"].astype(str)
+
+    figure = px.scatter(
+        selected,
+        x="num_parameters",
+        y=error_column,
+        color="R_test_label",
+        color_discrete_map={
+            "5": "black",
+            "20": "red",
+        },
+        hover_data=[
+            "depth",
+            "width",
+            "num_parameters",
+            "R_test",
+        ],
+        log_x=True,
+        log_y=True,
+        title=(
+            f"{error_column} versus number of parameters "
+            f"for R_test = 5 and 20"
+        ),
+        labels={
+            "num_parameters": "Number of parameters",
+            error_column: error_column,
+            "R_test_label": "Test radius",
+        },
+        category_orders={
+            "R_test_label": ["5", "20"]
+        },
+    )
+
+    output_path = os.path.join(
+        output_directory,
+        f"{error_column}_vs_parameters_R_5_R_20.html",
+    )
+
+    figure.write_html(
+        output_path,
+        include_plotlyjs=True,
+        full_html=True,
+    )
+
+    print(f"Saved interactive plot to {output_path}")
+
 # ---------------- Experiment parameters ----------------
 
 max_depth = 7
@@ -320,8 +388,8 @@ max_width = 32
 
 dataset_size = 10000
 training_radius = 5
-batch_size = 2048
-number_of_epochs = 50
+batch_size = 256
+number_of_epochs = 200
 noise_std = 0.01
 
 number_of_test_samples = 10000
@@ -360,6 +428,7 @@ with open(results_path, "w", newline="") as results_file:
     writer.writerow([
         "depth",
         "width",
+        "num_parameters",
         "R_test",
         "eq_error",
         "test_error",
@@ -374,7 +443,9 @@ with open(results_path, "w", newline="") as results_file:
 
             model = NeuralNetwork(depth, width).to(device)
 
-            optimizer = torch.optim.SGD(
+            num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+            optimizer = torch.optim.Adam(
                 model.parameters(),
                 lr=1e-3,
             )
@@ -403,6 +474,7 @@ with open(results_path, "w", newline="") as results_file:
                 writer.writerow([
                     depth,
                     width,
+                    num_parameters,
                     test_radius,
                     equivariance_error,
                     flow_error,
@@ -441,3 +513,20 @@ for fixed_radius in sorted(results["R_test"].unique()):
         fixed_radius=fixed_radius,
         error_column="test_error",
     )
+
+
+# Scatter plot of (#parameters, error) where each dot is one (depth,width)
+# R_test = 5 in black
+# R_test = 20 in red
+
+plot_error_vs_parameters(
+    results,
+    error_column="eq_error",
+    test_radii=(5, 20),
+)
+
+plot_error_vs_parameters(
+    results,
+    error_column="test_error",
+    test_radii=(5, 20),
+)
