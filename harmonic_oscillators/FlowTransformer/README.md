@@ -322,7 +322,7 @@ sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 
 **Output**
 
-This repository includes the final results of the transformer width experiment run on Isambard-AI. For this experiment, the tokenization radius was set to 5. Training states were sampled uniformly by volume from a ball of radius 0.5, and test states sampled from a ball of radius 5. State coordinates were quantized into 256 bins. The number of transformer layers and attention heads were fixed at 2 and 4 respectively. The aggregated numerical results are available in width_vs_mse.csv . A plot of (width, MSE) is shown below:
+This repository includes the final results of the transformer width experiment run on Isambard-AI. For this experiment, the tokenization radius was set to 5. Training states were sampled uniformly by volume from a ball of radius 0.5, and test states sampled from a ball of radius 5. The training dataset size was 100000, and the test dataset size 10000. State coordinates were quantized into 256 bins. The number of transformer layers and attention heads were fixed at 2 and 4 respectively. The aggregated numerical results are available in width_vs_mse.csv . A plot of (width, MSE) is shown below:
 
 [![Transformer width vs test MSE](width_vs_mse.png)](width_vs_mse.png)
 
