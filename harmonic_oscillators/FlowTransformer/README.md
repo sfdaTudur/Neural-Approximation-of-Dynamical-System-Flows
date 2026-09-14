@@ -164,36 +164,32 @@ The transformer architecture is controlled by three main parameters:
 
 **Evaluating Generalization on Out-of-Distribution Data**
 
-The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training. We fix a tokenization radius $R$ so that the meaning of each token remains unchanged between training and testing. During training, initial states are sampled uniformly by volume from
+The main goal of this project is to study how well the transformer generalizes outside the state distribution used during training. We fix a tokenization radius of 1 so that the meaning of each token remains unchanged between training and testing. During training, initial states are sampled uniformly by volume from
 
 ```math
-B_{r}
+B_{1/2}
 =
 \left\{
 x \in \mathbb{R}^6
 :
 \|x\|_2
 \leq
-r
-\right\}
-```
-where 
-```math
-r << R.
+1/2
+\right\}.
 ```
 
 
 For testing, states are sampled uniformly from the larger ball
 
 ```math
-B_R
+B_1
 =
 \left\{
 x \in \mathbb{R}^6
 :
 \|x\|_2
 \leq
-R
+1
 \right\}.
 ```
 
@@ -234,6 +230,14 @@ FlowTransformer/
 ├── test.py
 ├── slurm_array.sh
 ├── slurm_aggregate.sh
+├──  width_results/
+    ├── width_vs_mse.csv
+    ├── width_vs_mse.png
+    └── intermediate/
+        ├── width_001.csv
+        ├── width_002.csv
+        ├── ...
+        └── width_256.csv
 └── README.md
 ```
 
@@ -248,6 +252,7 @@ FlowTransformer/
   as a Slurm job array, with one GPU per experiment.
 * slurm_aggregate.sh: runs after the array completes and combines
   the individual results into a single CSV and plot.
+* width_results: the directory containing the final width-vs-mse results.
 
 **Requirements**
 
@@ -318,11 +323,3 @@ then run
 ARRAY_JOB=$(sbatch --parsable slurm_array.sh)
 sbatch --dependency=afterok:"$ARRAY_JOB" slurm_aggregate.sh
 ```
-
-
-**Output**
-
-This repository includes the final results of the transformer width experiment run on Isambard-AI. For this experiment, the tokenization radius was set to 5. Training states were sampled uniformly by volume from a ball of radius 0.5, and test states sampled from a ball of radius 5. The training dataset size was 100000, and the test dataset size 10000. State coordinates were quantized into 256 bins. The number of transformer layers and attention heads were fixed at 2 and 4 respectively. The aggregated numerical results are available in width_vs_mse.csv . A plot of (width, MSE) is shown below:
-
-[![Transformer width vs test MSE](width_vs_mse.png)](width_vs_mse.png)
-

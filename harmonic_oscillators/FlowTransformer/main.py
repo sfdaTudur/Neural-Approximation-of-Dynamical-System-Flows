@@ -48,8 +48,9 @@ HEADS = 4
 
 
 RESULTS_DIR = Path("width_results")
-RESULTS_FILE = Path("width_vs_mse.csv")
-PLOT_FILE = Path("width_vs_mse.png")
+INTERMEDIATE_DIR = RESULTS_DIR/ "intermediate"
+RESULTS_FILE = RESULTS_DIR / Path("width_vs_mse.csv")
+PLOT_FILE = RESULTS_DIR / Path("width_vs_mse.png")
 
 
 @torch.no_grad()
@@ -215,9 +216,9 @@ def run_single_width(width):
     )
 
     # Each Slurm task gets its OWN result file.
-    RESULTS_DIR.mkdir(exist_ok=True)
+    INTERMEDIATE_DIR.mkdir(exist_ok=True)
 
-    result_file = RESULTS_DIR / f"width_{width:03d}.csv"
+    result_file = INTERMEDIATE_DIR / f"width_{width:03d}.csv"
 
     with result_file.open(
         "w",
@@ -246,12 +247,12 @@ def aggregate_results():
     Combines data from each experiment into a single csv and plots results
     """
     result_files = list(
-        RESULTS_DIR.glob("width_*.csv")
+        INTERMEDIATE_DIR.glob("width_*.csv")
     )
 
     if not result_files:
         raise RuntimeError(
-            f"No result files found in {RESULTS_DIR}"
+            f"No result files found in {INTERMEDIATE_DIR}"
         )
 
     results = []
