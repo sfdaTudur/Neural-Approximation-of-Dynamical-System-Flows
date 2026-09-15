@@ -309,7 +309,7 @@ def plot_error_surface(
 
     figure.write_html(
         output_path,
-        include_plotlyjs=True,
+        include_plotlyjs="cdn",
         full_html=True,
     )
 
@@ -375,7 +375,7 @@ def plot_error_vs_parameters(
 
     figure.write_html(
         output_path,
-        include_plotlyjs=True,
+        include_plotlyjs="cdn",
         full_html=True,
     )
 
@@ -383,8 +383,8 @@ def plot_error_vs_parameters(
 
 # ---------------- Experiment parameters ----------------
 
-max_depth = 7
-max_width = 32
+max_depth = 9
+max_width = 36
 
 dataset_size = 10000
 training_radius = 5
