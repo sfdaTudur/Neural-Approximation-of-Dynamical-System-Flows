@@ -218,4 +218,10 @@ For our ReLU MLP architecture of fixed (depth, width)=(d,w), the number of param
 ```math
 P(d,w) = (7w + w) + d(w^2 + w) + (6w + 6);
 ```
-this is quadratic in width and linear in depth; another reason to use log plots. 
+this is quadratic in width and linear in depth; another reason to use log plots.
+
+## Interactive plots
+
+[Interactive equivariance error vs. parameter count plot](https://sfdaTudur.github.io/Neural-Approximation-of-Dynamical-System-Flows/harmonic_oscillators/3DHarmonicOscillator_HPC/data/plots/eq_error_vs_parameters_R_5_R_20.html)
+
+[Interactive Flow-prediction error vs. parameter count plot](https://sfdaTudur.github.io/Neural-Approximation-of-Dynamical-System-Flows/harmonic_oscillators/3DHarmonicOscillator_HPC/data/plots/test_error_vs_parameters_R_5_R_20.html)

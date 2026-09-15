@@ -57,25 +57,3 @@ Numerical results and generated plots are stored within the corresponding experi
 
 The fully connected network experiment produces interactive Plotly visualizations of flow and 
 equivariance error as functions of network depth, width, and parameter count.
-
-### Repository structure 
-
-. 
-├── 3DHarmonicOscillator_HPC/ 
-│ ├── HarmOsc_HPC.py 
-│ ├── slurm_script.sh 
-│ ├── data/ 
-│ └── README.md
-| 
-├── FlowTransformer/ 
-│ ├── data.py 
-│ ├── model.py 
-│ ├── training.py 
-│ ├── main.py 
-│ ├── test.py 
-│ ├── slurm_array.sh 
-│ ├── slurm_aggregate.sh 
-| ├── width_results/
-│ └── README.md
-| 
-└── README.md
