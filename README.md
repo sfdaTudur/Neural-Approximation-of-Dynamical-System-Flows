@@ -11,9 +11,8 @@ The repository currently contains two experiments.
 
 ## Fully connected Neural Networks
 
-```bash
-3DHarmonicOscillator_HPC/
-```
+[3DHarmonicOscillator_HPC/](harmonic_oscillators/3DHarmonicOscillator_HPC/)
+
 Fully connected ReLU networks of varying depth and width are trained to approximate the exact flow map
 of the harmonic oscillator. The experiment measures both flow-prediction error and empirical SO(3)-equivariance
 error. 
@@ -22,24 +21,19 @@ Models are trained on states sampled from a fixed-radius ball and evaluated at m
 both in-distribution and out-of-distribution behaviour to be studied. Errors are also compared with model parameter count to investigate how approximation quality scales with network size. 
 
 The experiment is designed to run either locally or as a Slurm batch job on an HPC system. See
-```bash
-3DHarmonicOscillator_HPC/README.md
-```
+[3DHarmonicOscillator_HPC/README.md](harmonic_oscillators/3DHarmonicOscillator_HPC/README.md)
 for the mathematical setup, experiment details, and instructions for reproducing results.
 
 ## Autoregressive transformer
 
-```bash
-FlowTransformer/
-```
+[FlowTransformer/](harmonic_oscillators/FlowTransformer/)
+
 The second experiment represents the harmonic-oscillator flow as a sequence-modelling problem.
 
 Continuous coordinates are quantized into discrete tokens, and an autoregressive transformer is trained to predict the six coordinates of the evolved state. The model is evaluated using both stochastic sampling and greedy generation.
 
 The experiment studies how prediction error and out-of-distribution generalization change as the transformer architecture is varied. See 
-```
-FlotTransformer/README.md
-```
+[FlowTransformer/README.md](harmonic_oscillators/FlowTransformer/README.md)
 for details of the tokenization scheme, transformer architecture, training objective, and evaluation procedure.
 
 ### Questions explored
