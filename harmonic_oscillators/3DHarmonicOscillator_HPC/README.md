@@ -204,4 +204,18 @@ data/plots/
 
 The generated `.html` files can be opened in a web browser. Each plot shows the relationship between network depth, network width, and either the flow error or the empirical equivariance error.
 
-We also generate a scatter plot of (number of parameters, error) where the error is either from equivariance or flow prediction. Each dot represents one (depth,width)-model, and the color represents the radius used to sample for computing errors.
+We also generate a scatter plot of (log(number of parameters), log(error)) where the error is either from equivariance or flow prediction. Each dot represents one (depth,width)-model, and the color represents the radius used to sample for computing errors; assuming error behaves like
+```math
+E(P) \approx CP^{- \alpha}
+```
+where P is the number of parameters, then taking logs gives
+```math
+\log(E) = \log(C) - \alpha \log(P).
+```
+So on a log-log plot a power law relationship is approximately a straight line, and we can investigate if error scales multiplicatively with model size.
+
+For our ReLU MLP architecture of fixed (depth, width)=(d,w), the number of parameters is
+```math
+P(d,w) = (7w + w) + d(w^2 + w) + (6w + 6);
+```
+this is quadratic in width and linear in depth; another reason to use log plots. 
